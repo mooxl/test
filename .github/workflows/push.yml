@@ -1,0 +1,71 @@
+name: Code Deployment and Environment Setup
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    name: Run remote SSH commands
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone or pull repository
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.KEY }}
+          script_stop: false
+          script: |
+            if [ -d ${{ secrets.PATH }} ]; then
+              cd ${{ secrets.PATH }}
+              git pull
+            else
+              mkdir -p ${{ secrets.PATH }}
+              cd ${{ secrets.PATH }}
+              git clone https://github.com/${{ github.repository }} .
+            fi
+
+      - name: Update environment variables
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.KEY }}
+          script_stop: false
+          script: |
+            # Bash function to replace env variables
+            replace_env() {
+              local env_var=$1
+              local new_value=$2
+              sed -i "s#${env_var}=.*#${env_var}=${new_value}#" .env
+            }
+
+            cd ${{ secrets.PATH }}
+
+            # Replace .env with vars
+            replace_env 'NAME' '${{ vars.NAME }}'
+            replace_env 'ASTRO_HOST' '${{ vars.ASTRO_HOST }}'
+            replace_env 'PAYLOAD_HOST' '${{ vars.PAYLOAD_HOST }}'
+            replace_env 'PAYLOAD_URL' '${{ vars.PAYLOAD_URL }}'
+            replace_env 'PAYLOAD_PORT' '${{ vars.PAYLOAD_PORT }}'
+
+            # Replace .env with secrets
+            replace_env 'PAYLOAD_SECRET' '${{ secrets.PAYLOAD_SECRET }}'
+            replace_env 'MONGODB_URI' '${{ secrets.MONGODB_URI }}'
+            replace_env 'MONGODB_USER' '${{ secrets.MONGODB_USER }}'
+            replace_env 'MONGODB_PW' '${{ secrets.MONGODB_PW }}'
+            replace_env 'TOKEN' '${{ secrets.TOKEN }}'
+
+            mkdir -p ./astro
+            cp .env ./astro/.env
+
+      - name: Start Production Services
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.KEY }}
+          script: |
+            cd ${{ secrets.PATH }}
+            yarn prod payload
+            yarn prod astro

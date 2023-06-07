@@ -1,0 +1,24 @@
+services:
+  astro:
+    build:
+      target: dev
+    volumes:
+      - ./astro/src:/base/src
+      - ./astro/public:/base/public
+      - ./astro/astro.config.mjs:/base/astro.config.mjs
+      - ./astro/tailwind.config.cjs:/base/tailwind.config.cjs
+    ports:
+      - 3000:3000
+
+  payload:
+    build:
+      target: dev
+    volumes:
+      - ./payload/src:/base/src
+      - ./astro/src/types.ts:/types.ts
+    ports:
+      - 3001:3001
+
+  mongo:
+    ports:
+      - 27017:27017
